@@ -1,0 +1,104 @@
+services:
+  db:
+    image: postgres:15
+    container_name: postgres_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: always
+    env_file:
+      - backend/.env
+    networks:
+      - gorizont-networks
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: back-end
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+      - redis
+    env_file:
+      - backend/.env
+    volumes:
+      - media_data:/backend/media
+      - static_data:/backend/staticfiles
+    restart: always
+    networks:
+      - gorizont-networks
+
+  redis:
+    networks:
+      - gorizont-networks
+    container_name: redis_container
+    image: redis:alpine
+    environment:
+      TZ: Europe/Moscow
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+
+  celery:
+    environment:
+      - TZ=Europe/Moscow
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: celery_worker
+    command: celery -A mysite worker -l info -E
+    depends_on:
+      - redis
+      - backend
+    env_file:
+      - backend/.env
+    networks:
+      - gorizont-networks
+    restart: always
+
+  celery-beat:
+    environment:
+      - TZ=Europe/Moscow
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: celery_beat
+    command: celery -A mysite beat -l info
+    depends_on:
+      - redis
+      - backend
+      - celery
+    env_file:
+      - backend/.env
+    networks:
+      - gorizont-networks
+    restart: always
+
+  nginx:
+    image: nginx:latest
+    container_name: nginx
+    volumes:
+      - static_data:/static
+    ports:
+      - "81:80"
+      - "444:443"
+    depends_on:
+      - backend
+    restart: always
+    networks:
+      - gorizont-networks
+
+volumes:
+  media_data:
+  postgres_data:
+  static_data:
+  redis-data:
+
+networks:
+  gorizont-networks:
