@@ -60,6 +60,8 @@ services:
       - backend/.env
     networks:
       - gorizont-networks
+    volumes:
+      - ./backend:/vol_celery
     restart: always
 
   celery-beat:
@@ -78,6 +80,8 @@ services:
       - backend/.env
     networks:
       - gorizont-networks
+    volumes:
+      - ./backend:/vol_celery
     restart: always
 
   nginx:
